@@ -15,7 +15,6 @@ jobs:
       contents: write
     strategy:
       matrix:
-        # Include amd64 on all platforms.
         goos: [windows, linux]
         goarch: [amd64]
         goamd64: [v1, v2, v3]
@@ -39,15 +38,6 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
 
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.19
-
-      - name: Get time
-        uses: gerred/actions/current-time@master
-        id: current-time
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -56,6 +46,10 @@ jobs:
 
       - name: Get project dependencies
         run: go mod download
+
+      - name: Get time
+        uses: gerred/actions/current-time@master
+        id: current-time
 
       - name: Build
         run: |
