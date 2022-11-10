@@ -54,7 +54,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p dist
-          go build -tags=gpl -v -o dist/hysteria-${{ matrix.goos }}-${{ matrix.goarch }}-${{ matrix.goamd64 }}${{ matrix.suffix }} -trimpath -ldflags "-s -w -buildid= -X main.appVersion=${{ env.GIT_TAG_NAME }} -X main.appCommit=${{ github.sha }} -X main.appDate=${{ steps.current-time.outputs.time }}" ./cmd
+          go build -tags=gpl -v -o dist/hysteria-${{ matrix.goos }}-${{ matrix.goarch }}-${{ matrix.goamd64 }}${{ matrix.suffix }} -trimpath -ldflags "-s -w -buildid= -X main.appVersion=$(git describe --tags --always) -X main.appCommit=${{ github.sha }} -X main.appDate=${{ steps.current-time.outputs.time }}" ./cmd
 
       - name: Upload files to Artifacts
         uses: actions/upload-artifact@v3
