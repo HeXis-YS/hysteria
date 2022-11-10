@@ -39,9 +39,10 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
 
-      - name: Get tag
-        uses: olegtarasov/get-tag@v2
-        id: tagName
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
 
       - name: Get time
         uses: gerred/actions/current-time@master

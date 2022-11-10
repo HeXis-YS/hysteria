@@ -13,7 +13,7 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 )
 
-const udpBufferSize = 65535
+const udpBufferSize = 4096
 
 func (s *Server) HandleUDP(conn adapter.UDPConn) {
 	go s.handleUDPConn(conn)
@@ -52,7 +52,7 @@ func (s *Server) handleUDPConn(conn adapter.UDPConn) {
 	err = s.relayUDP(conn, rc, &remoteAddr, s.Timeout)
 }
 
-func (s *Server) relayUDP(lc adapter.UDPConn, rc core.UDPConn, to *net.UDPAddr, timeout time.Duration) (err error) {
+func (s *Server) relayUDP(lc adapter.UDPConn, rc core.HyUDPConn, to *net.UDPAddr, timeout time.Duration) (err error) {
 	errChan := make(chan error, 2)
 	// local => remote
 	go func() {

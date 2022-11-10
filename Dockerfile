@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine AS builder
+FROM golang:1-alpine AS builder
 
 LABEL maintainer="mritd <mritd@linux.com>"
 
@@ -11,17 +11,12 @@ ENV GOPROXY ${GOPROXY}
 
 COPY . /go/src/github.com/hynetwork/hysteria
 
-WORKDIR /go/src/github.com/hynetwork/hysteria/cmd
+WORKDIR /go/src/github.com/hynetwork/hysteria
 
 RUN set -ex \
-    && apk add git build-base \
-    && export VERSION=$(git describe --tags) \
-    && export COMMIT=$(git rev-parse HEAD) \
-    && export TIMESTAMP=$(date "+%F %T") \
-    && go build -trimpath -o /go/bin/hysteria -ldflags \
-        "-w -s -X 'main.appVersion=${VERSION}' \
-        -X 'main.appCommit=${COMMIT}' \
-        -X 'main.appDate=${TIMESTAMP}'"
+    && apk add git build-base bash \
+    && ./build.sh \
+    && mv ./build/hysteria-* /go/bin/hysteria
 
 # multi-stage builds to create the final image
 FROM alpine AS dist

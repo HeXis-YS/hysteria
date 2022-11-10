@@ -18,8 +18,18 @@
 
 [8]: https://github.com/HyNetwork/hysteria/discussions
 
-Hysteria is a feature-packed proxy & relay utility optimized for lossy, unstable connections (e.g. satellite networks,
-congested public Wi-Fi, connecting from China to servers abroad) powered by a customized QUIC protocol.
+Hysteria is a feature-packed proxy & relay tool optimized for lossy, unstable connections (e.g. satellite networks,
+congested public Wi-Fi, connecting to foreign servers from China) powered by a customized protocol based on QUIC.
+
+## Use cases
+
+- Censorship circumvention
+- Boosting slow connections
+- Bypassing commercial/academic/corporate firewalls
+- Bypassing ISP throttling
+- ...
+
+## Modes
 
 - SOCKS5 proxy (TCP & UDP)
 - HTTP/HTTPS proxy
@@ -29,11 +39,20 @@ congested public Wi-Fi, connecting from China to servers abroad) powered by a cu
 - TUN (TAP on Windows)
 - Still growing...
 
-**[See wiki for documentation](https://github.com/HyNetwork/hysteria/wiki)**
+## **[Documentation](https://hysteria.network/)**
 
 ----------
 
-Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网络工具（双边加速），比如卫星网络、拥挤的公共 Wi-Fi、在中国连接国外服务器等。 基于修改版的 QUIC 协议。
+Hysteria 是一个功能丰富的，专为恶劣网络环境（如卫星网络、拥挤的公共 Wi-Fi、从中国连接境外服务器等）进行优化的双边加速工具，基于修改版的 QUIC 协议。
+
+## 常见用例
+
+- 绕过网络审查
+- 提升传输速度
+- 绕过商业/学校/企业防火墙
+- 绕过运营商 QoS 限速
+
+## 模式
 
 - SOCKS5 代理 (TCP & UDP)
 - HTTP/HTTPS 代理
@@ -43,8 +62,20 @@ Hysteria 是一个功能丰富的，专为恶劣网络环境进行优化的网�
 - TUN (Windows 下为 TAP)
 - 仍在增加中...
 
-**[文档请见 wiki](https://github.com/HyNetwork/hysteria/wiki/%E9%A6%96%E9%A1%B5)**
+## **[中文文档](https://hysteria.network/zh/)**
 
 ----------
 
+## Benchmarks
+
 ![Bench](docs/bench/bench.png)
+
+----------
+
+**Donations are greatly appreciated!** Contact me if you would like your name listed as a sponsor.
+
+**欢迎大佬捐赠！** 如希望挂名请在捐赠后联系我。
+
+Bitcoin: `bc1qzkfjy4vpm8hzu8haw0j6efzwczrjv7ntu4lzqu`
+
+Monero: `8ASufSipkvzDUge4dLnr9ZSFXpVn8M2Sea5G79DL5rFncnaKEAwqag8Xptpp8MSvpHiNtKxQgYtho3eDzW2nak4PJA84oBa`

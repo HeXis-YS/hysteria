@@ -11,27 +11,35 @@ import (
 	"os"
 	"time"
 
-	"github.com/HyNetwork/hysteria/pkg/pmtud_fix"
+	"github.com/HyNetwork/hysteria/pkg/transport/pktconns"
+
+	"github.com/HyNetwork/hysteria/pkg/pmtud"
 	"github.com/HyNetwork/hysteria/pkg/redirect"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 
 	"github.com/HyNetwork/hysteria/pkg/acl"
-	hyCongestion "github.com/HyNetwork/hysteria/pkg/congestion"
 	"github.com/HyNetwork/hysteria/pkg/core"
 	hyHTTP "github.com/HyNetwork/hysteria/pkg/http"
-	"github.com/HyNetwork/hysteria/pkg/obfs"
 	"github.com/HyNetwork/hysteria/pkg/relay"
 	"github.com/HyNetwork/hysteria/pkg/socks5"
 	"github.com/HyNetwork/hysteria/pkg/tproxy"
 	"github.com/HyNetwork/hysteria/pkg/transport"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/congestion"
 	"github.com/sirupsen/logrus"
 )
 
+var clientPacketConnFuncFactoryMap = map[string]pktconns.ClientPacketConnFuncFactory{
+	"":             pktconns.NewClientUDPConnFunc,
+	"udp":          pktconns.NewClientUDPConnFunc,
+	"wechat":       pktconns.NewClientWeChatConnFunc,
+	"wechat-video": pktconns.NewClientWeChatConnFunc,
+	"faketcp":      pktconns.NewClientFakeTCPConnFunc,
+}
+
 func client(config *clientConfig) {
 	logrus.WithField("config", config.String()).Info("Client configuration loaded")
+	config.Fill() // Fill default values
 	// Resolver
 	if len(config.Resolver) > 0 {
 		err := setResolver(config.Resolver)
@@ -43,14 +51,10 @@ func client(config *clientConfig) {
 	}
 	// TLS
 	tlsConfig := &tls.Config{
+		NextProtos:         []string{config.ALPN},
 		ServerName:         config.ServerName,
 		InsecureSkipVerify: config.Insecure,
 		MinVersion:         tls.VersionTLS13,
-	}
-	if config.ALPN != "" {
-		tlsConfig.NextProtos = []string{config.ALPN}
-	} else {
-		tlsConfig.NextProtos = []string{DefaultALPN}
 	}
 	// Load CA
 	if len(config.CustomCA) > 0 {
@@ -75,19 +79,13 @@ func client(config *clientConfig) {
 		MaxStreamReceiveWindow:         config.ReceiveWindowConn,
 		InitialConnectionReceiveWindow: config.ReceiveWindow,
 		MaxConnectionReceiveWindow:     config.ReceiveWindow,
-		KeepAlivePeriod:                KeepAlivePeriod,
+		HandshakeIdleTimeout:           time.Duration(config.HandshakeTimeout) * time.Second,
+		MaxIdleTimeout:                 time.Duration(config.IdleTimeout) * time.Second,
+		KeepAlivePeriod:                time.Duration(config.IdleTimeout) * time.Second * 2 / 5,
 		DisablePathMTUDiscovery:        config.DisableMTUDiscovery,
 		EnableDatagrams:                true,
 	}
-	if config.ReceiveWindowConn == 0 {
-		quicConfig.InitialStreamReceiveWindow = DefaultStreamReceiveWindow
-		quicConfig.MaxStreamReceiveWindow = DefaultStreamReceiveWindow
-	}
-	if config.ReceiveWindow == 0 {
-		quicConfig.InitialConnectionReceiveWindow = DefaultConnectionReceiveWindow
-		quicConfig.MaxConnectionReceiveWindow = DefaultConnectionReceiveWindow
-	}
-	if !quicConfig.DisablePathMTUDiscovery && pmtud_fix.DisablePathMTUDiscovery {
+	if !quicConfig.DisablePathMTUDiscovery && pmtud.DisablePathMTUDiscovery {
 		logrus.Info("Path MTU Discovery is not yet supported on this platform")
 	}
 	// Auth
@@ -97,11 +95,14 @@ func client(config *clientConfig) {
 	} else {
 		auth = []byte(config.AuthString)
 	}
-	// Obfuscator
-	var obfuscator obfs.Obfuscator
-	if len(config.Obfs) > 0 {
-		obfuscator = obfs.NewXPlusObfuscator([]byte(config.Obfs))
+	// Packet conn
+	pktConnFuncFactory := clientPacketConnFuncFactoryMap[config.Protocol]
+	if pktConnFuncFactory == nil {
+		logrus.WithFields(logrus.Fields{
+			"protocol": config.Protocol,
+		}).Fatal("Unsupported protocol")
 	}
+	pktConnFunc := pktConnFuncFactory(config.Obfs, time.Duration(config.HopInterval)*time.Second)
 	// Resolve preference
 	if len(config.ResolvePreference) > 0 {
 		pref, err := transport.ResolvePreferenceFromString(config.ResolvePreference)
@@ -118,11 +119,7 @@ func client(config *clientConfig) {
 		var err error
 		aclEngine, err = acl.LoadFromFile(config.ACL, transport.DefaultClientTransport.ResolveIPAddr,
 			func() (*geoip2.Reader, error) {
-				if len(config.MMDB) > 0 {
-					return loadMMDBReader(config.MMDB)
-				} else {
-					return loadMMDBReader(DefaultMMDBFilename)
-				}
+				return loadMMDBReader(config.MMDB)
 			})
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
@@ -137,11 +134,20 @@ func client(config *clientConfig) {
 	up, down, _ := config.Speed()
 	for {
 		try += 1
-		c, err := core.NewClient(config.Server, config.Protocol, auth, tlsConfig, quicConfig,
-			transport.DefaultClientTransport, up, down,
-			func(refBPS uint64) congestion.CongestionControl {
-				return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
-			}, obfuscator)
+		c, err := core.NewClient(config.Server, auth, tlsConfig, quicConfig, pktConnFunc, up, down,
+			func(err error) {
+				if config.QuitOnDisconnect {
+					logrus.WithFields(logrus.Fields{
+						"addr":  config.Server,
+						"error": err,
+					}).Fatal("Connection to server lost, exiting...")
+				} else {
+					logrus.WithFields(logrus.Fields{
+						"addr":  config.Server,
+						"error": err,
+					}).Error("Connection to server lost, reconnecting...")
+				}
+			})
 		if err != nil {
 			logrus.WithField("error", err).Error("Failed to initialize client")
 			if try <= config.Retry || config.Retry < 0 {
