@@ -4,70 +4,47 @@ on:
   workflow_dispatch:
   release:
     types: [published]
-  push:
-    tags:
-      - 'v*'
 
 jobs:
+
   build:
     name: Build and release
-    permissions:
-      contents: write
-    strategy:
-      matrix:
-        goos: [windows, linux]
-        goarch: [amd64]
-        goamd64: [v1, v2, v3]
-        include:
-          - goos: "windows"
-            suffix: ".exe"
-          - goos: "linux"
-            suffix: ""
-      fail-fast: false
     runs-on: ubuntu-latest
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
-      GOARM: ${{ matrix.goarm }}
-      GOAMD64: ${{ matrix.goamd64 }}
-      CGO_ENABLED: 0
 
     steps:
 
       - name: Check out
         uses: actions/checkout@v3
 
-      - name: Set up Go
+      - name: Setup Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
-          check-latest: true
 
-      - name: Get project dependencies
-        run: go mod download
+      - name: Run build script
+        env:
+          HY_APP_PLATFORMS: 'windows/amd64/v1,windows/amd64/v2,windows/amd64/v3,linux/amd64/v1,linux/amd64/v2,linux/amd64/v3'
+        run: ./build.sh
+        shell: bash
 
-      - name: Get time
-        uses: gerred/actions/current-time@master
-        id: current-time
-
-      - name: Build
+      - name: Generate hashes
         run: |
-          mkdir -p dist
-          go build -tags=gpl -v -o dist/hysteria-${{ matrix.goos }}-${{ matrix.goarch }}-${{ matrix.goamd64 }}${{ matrix.suffix }} -trimpath -ldflags "-s -w -buildid= -X main.appVersion=$(git describe --tags --always) -X main.appCommit=${{ github.sha }} -X main.appDate=${{ steps.current-time.outputs.time }}" ./cmd
+          cd build
+          for f in $(find . -type f); do
+            sha256sum $f | sudo tee -a hashes.txt
+          done
 
-      - name: Upload files to Artifacts
-        uses: actions/upload-artifact@v3
+      - name: Upload
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: hysteria-${{ matrix.goos }}-${{ matrix.goarch }}-${{ matrix.goamd64 }}${{ matrix.suffix }}
-          path: |
-            ./dist/hysteria-${{ matrix.goos }}-${{ matrix.goarch }}-${{ matrix.goamd64 }}${{ matrix.suffix }}
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'release'
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./dist/hysteria-${{ matrix.goos }}-${{ matrix.goarch }}-${{ matrix.goamd64 }}${{ matrix.suffix }}
-          tag: ${{ github.ref }}
-          file_glob: true
+          files: |
+            ./build/hysteria-windows-amd64-v1.exe
+            ./build/hysteria-windows-amd64-v2.exe
+            ./build/hysteria-windows-amd64-v3.exe
+            ./build/hysteria-linux-amd64-v1
+            ./build/hysteria-linux-amd64-v2
+            ./build/hysteria-linux-amd64-v3
+            ./build/hashes.txt

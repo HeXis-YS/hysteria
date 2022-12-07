@@ -45,16 +45,31 @@ rm -rf build/*
 echo "Starting build..."
 
 for platform in "${platforms[@]}"; do
-    GOOS=${platform%/*}
-    GOARCH=${platform#*/}
-    echo "Building $GOOS/$GOARCH"
-    output="build/hysteria-$GOOS-$GOARCH"
+    platform=(${platform//// })
+    GOOS=${platform[0]}
+    GOARCH=${platform[1]}
+    if [ $GOARCH = "amd64" ]; then
+        GOAMD64=${platform[2]}
+        echo "Building $GOOS/$GOARCH/$GOAMD64"
+        output="build/hysteria-$GOOS-$GOARCH-$GOAMD64"
+    else
+        echo "Building $GOOS/$GOARCH"
+        output="build/hysteria-$GOOS-$GOARCH"
+    fi
     if [ $GOOS = "windows" ]; then
         output="$output.exe"
     fi
-    env GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./app/cmd/
+    if [ $GOARCH = "amd64" ]; then
+        env GOOS=$GOOS GOARCH=$GOARCH GOAMD64=$GOAMD64 CGO_ENABLED=0 go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./app/cmd/
+    else
+        env GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -o $output -tags=gpl -ldflags "$ldflags" -trimpath ./app/cmd/
+    fi
     if [ $? -ne 0 ]; then
-        echo "Error: failed to build $GOOS/$GOARCH"
+        if [ $GOARCH = "amd64" ]; then
+            echo "Error: failed to build $GOOS/$GOARCH/$GOAMD64"
+        else
+            echo "Error: failed to build $GOOS/$GOARCH"
+        fi
         exit 1
     fi
 done
