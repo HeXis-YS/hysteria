@@ -65,6 +65,15 @@ platform_to_env() {
     amd64-avx)
         env+=" GOAMD64=v3 GOARCH=amd64"
         ;;
+    amd64-v1)
+        env+=" GOAMD64=v1 GOARCH=amd64"
+        ;;
+    amd64-v2)
+        env+=" GOAMD64=v2 GOARCH=amd64"
+        ;;
+    amd64-v3)
+        env+=" GOAMD64=v3 GOARCH=amd64"
+        ;;
     esac
 
     echo "$env"
